@@ -241,7 +241,7 @@ Function Update-Certificate
 
     "Web Site Name:   $WebSiteName"
     "Web Site Folder: $websiteFolder"
-    "cert Folder:     $certFolder"
+    "Cert Folder:     $certFolder"
 
     if ( $csrDetails.Count -gt 0 )
     {
@@ -291,7 +291,7 @@ Function Update-Certificate
         "Initialize-ACMEVault -BaseService LetsEncrypt-STAGING -VaultProfile Test"
     }
 
-    if ( ! ((Get-ACMEVault).Registrations.Count) )
+    if ( ! ((Get-ACMEVault -VaultProfile $VaultProfile).Registrations.Count) )
     {
         "There are no registrations. This process cannot proceed until a registration has been created"
         "Issue a PowerShell command like: New-ACMERegistration -Contacts mailto:somebody@example.org -AcceptTos"
@@ -362,8 +362,8 @@ Function Update-Certificate
             # No?  Has the request been submitted?
             if ( ! ($result.Challenges | Where-Object { $_.Type -eq $ChallengeType -and $_.HandlerName -eq $ChallengeHandler }).Count )
             {
-                "Issue challenge"
-                $result = Complete-ACMEChallenge $alias -ChallengeType $ChallengeType -Handler $ChallengeHandler -HandlerParameters $ChallengeParameters
+                "Issue challenge for '$alias'"
+                $result = Complete-ACMEChallenge $alias -VaultProfile $VaultProfile -ChallengeType $ChallengeType -Handler $ChallengeHandler -HandlerParameters $ChallengeParameters
             }
 
             <#  After complete
@@ -414,7 +414,7 @@ Function Update-Certificate
             }
   
             # Assume that the .well-known/acme-challenge/xxx file is in place
-            "Submit challenge"
+            "Submit challenge for '$alias'"
             $result = Submit-ACMEChallenge $alias -VaultProfile $VaultProfile -ChallengeType $ChallengeType
 
             $challenges[$alias] = $result
@@ -515,8 +515,8 @@ Function Update-Certificate
         $alias = $_.Key
         $domain = $_.Value
 
-        "Cleaning challenge for $domain"
-        $result = Complete-ACMEChallenge $alias -ChallengeType $ChallengeType -Handler $ChallengeHandler -HandlerParameters $ChallengeParameters -Clean
+        "Cleaning challenge for '$alias'"
+        $result = Complete-ACMEChallenge $alias -VaultProfile $VaultProfile -ChallengeType $ChallengeType -Handler $ChallengeHandler -HandlerParameters $ChallengeParameters -Clean
 
         if ( ($ChallengeType -eq "http-01") -and ($ChanllengeHandler -eq "manual") )
         {
