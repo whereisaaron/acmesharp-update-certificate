@@ -136,13 +136,13 @@ Function Update-Certificate
         [Parameter(HelpMessage="Set this option to true if old certificates for the domain are to be retained (by default they are removed)")]
         [switch]$keepOldCertificates = $false,
         [Parameter(HelpMessage="Which ACME challenge method to use, ""http-01"" or ""dns-01""")]
-        [switch]$VaultProfile = ":user",
+        [string]$VaultProfile = ":user",
         [Parameter(HelpMessage="Which ACME challenge method to use, ""http-01"" or ""dns-01""")]
-        [switch]$ChallengeType = "http-01",
+        [string]$ChallengeType = "http-01",
         [Parameter(HelpMessage="Which ACMESharp challenge handler to use, e.g. ""awsRoute53"" or ""manual""")]
-        [switch]$ChallengeHandler = "manual",
+        [string]$ChallengeHandler = "manual",
         [Parameter(HelpMessage="Hash table or parametrs for the challenge handler, e.g. @{HostedZoneId=""ZX1234567890"";AwsProfileName=""myuser""}")]
-        [switch]$ChallengeParameters = "@{}"
+        [HashTable]$ChallengeParameters = @{}
     )
 
     # Check an alias has been provided
@@ -175,7 +175,7 @@ Function Update-Certificate
 
     if ( ! $alias -or ! $domain -or ! $WebSiteName -or ! $webSite )
     {
-        "Must supplied domain, alias, and webSite"
+        "Must supply domain, alias, and webSite"
         return
     }
 
