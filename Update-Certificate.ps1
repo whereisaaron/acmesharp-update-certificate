@@ -688,9 +688,9 @@ Function Update-Certificate
     $import_result = Import-PfxCertificate -CertStoreLocation "cert:$certPath" -FilePath $filepath
 
     $expires = ((Get-Item "Cert:$certpath\$thumbprint").notAfter).ToString("yyyy-MM-dd")
-    "Setting friendly name to '$domain $expires LE'"
-    (Get-Item "Cert:$certpath\$thumbprint").FriendlyName = "$domain $expires LE"
-    (Get-Item "Cert:$certpath\$thumbprint").FriendlyName = $domain
+    $friendly = "$domain $expires ACME"
+    "Setting friendly name to '$friendly'"
+    (Get-Item "Cert:$certpath\$thumbprint").FriendlyName = "$friendly"
 
     if ( ! $notIIS )
     {
