@@ -30,7 +30,7 @@ Update-Certificate -alias "www1" -domain "www.example.com" -websiteName "My Webs
 The following example would issue a certificate 'api.example.com' and install it in Windows. A running website or IIS is not required. You may need to script additional steps to get your service or application to use the new certificate.
 
 ```
-Update-Certificate -alias "api1" -domain "api.example.com" -notIIS -ChallengeType "dns-01" -ChallengeHandler "awsRoute53" -ChallengeParameters @{HostedZoneId="$vpcZoneId";AwsProfileName="$awsProfile"}
+Update-Certificate -alias "api1" -domain "api.example.com" -notIIS -ChallengeType "dns-01" -ChallengeHandler "awsRoute53" -ChallengeParameters @{HostedZoneId="$vpcZoneId";AwsProfileName="default"}
 ```
 
 You can also issue certificates for multiple domains names using the `-domains` hash table argument to specify the additional domains. Each domain must be bound to the existing website for `http-01` or be in the same domain/zone for `dns-01`.
