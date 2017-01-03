@@ -679,8 +679,8 @@ Function Update-Certificate
 
     if ( -not $keepOldCertificates )
     {
-        "Removing existing certificates with '$domain' as the common name"
-        get-childitem "cert:$certPath" | Where-Object { $_.Subject -eq "CN=$domain" }  | Remove-Item
+        "Removing existing certificates with '$maindomain' as the common name"
+        get-childitem "cert:$certPath" | Where-Object { $_.Subject -eq "CN=$maindomain" }  | Remove-Item
     }
 
     # Now import the certificate
@@ -688,7 +688,7 @@ Function Update-Certificate
     $import_result = Import-PfxCertificate -CertStoreLocation "cert:$certPath" -FilePath $filepath
 
     $expires = ((Get-Item "Cert:$certpath\$thumbprint").notAfter).ToString("yyyy-MM-dd")
-    $friendly = "$domain $expires ACME"
+    $friendly = "$maindomain $expires ACME"
     "Setting friendly name to '$friendly'"
     (Get-Item "Cert:$certpath\$thumbprint").FriendlyName = "$friendly"
 
