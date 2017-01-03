@@ -52,7 +52,7 @@
 .PARAMETER checkParameters 
     Set this option to true if old certificates for the domain are to be retained (by default they are removed)
 .PARAMETER keepOldCertificates
-    Use this option if IIS is not to be updated
+    Use this option if IIS is not to be updated or used for http-01 challenges
 .PARAMETER notIIS
     Which ACMESharp vault profile to use, will default to "":user"", or "":system"" if elevated, or \$env:ACMESHARP_VAULT_PROFILE if set
 .PARAMETER VaultProfile
@@ -103,7 +103,7 @@ Function Update-Certificate
         ]
         [ValidateNotNullOrEmpty()]
         [HashTable]$domains = @{}, # = ("alias1","my.domain.com"),("alias2","other.domain.com")
-        [Parameter(Mandatory=$true, 
+        [Parameter(Mandatory=$false, 
             ValueFromPipeline=$true,
             ValueFromPipelineByPropertyName=$true,
             HelpMessage="The name of the IIS web site associated with the certificate being generated such as 'Default Web Site'")]
@@ -157,25 +157,28 @@ Function Update-Certificate
         "You must supply a value for the domain for which you want to create a certificate"
     }
 
-    # Check an web site has been provided
-    if ( ! $WebSiteName )
+    if ( ! $notIIS )
     {
-        "The name of a web server must be provided"
-    }
+        # Check an web site has been provided, if we are to install in IIS
+        if ( ! $WebSiteName )
+        {
+            "The name of a web server must be provided"
+        }
 
-    # The $websiteFolder must exist
-    $webSite = Get-Website -Name $WebSiteName
+        # The $websiteFolder must exist
+        $webSite = Get-Website -Name $WebSiteName
 
-    if ( ! $webSite )
-    {
-        "The Web Site '$WebSiteName' does not exist"
+        if ( ! $webSite )
+        {
+            "The Web Site '$WebSiteName' does not exist"
+        }
     }
 
     # The three mandatory parameters must exist
 
-    if ( ! $alias -or ! $domain -or ! $WebSiteName -or ! $webSite )
+    if ( ! $alias -or ! $domain -or (! $notIIS -and (! $WebSiteName -or ! $webSite ) ) )
     {
-        "Must supply domain, alias, and webSite"
+        "Must supply domain, alias, and for IIS installs a website"
         return
     }
 
@@ -205,24 +208,29 @@ Function Update-Certificate
     # Add the main alias to the domains list so they can all be processed together
     $domains[$alias] = $domain
 
-    if ( (! ($webSite.State -eq "Started")) -and (! ($ChallengeType -eq "http-01")) )
+    # To use http-01 with IIS the website needs to be operating
+    if ( (! ($webSite.State -eq "Started")) -and (! ($ChallengeType -eq "http-01")) -and (! $notIIS) )
     {
         "The web site '$WebSiteName' is not started. It will not be possible to complete the http-01 challenge"
         return
     }
 
-    # Check that the domains for which certificates are to be generated have an https binding in the web site
-    $invalidDomains = $domains.GetEnumerator() | 
-        Where-Object { $dom = $_.Value;
-            ! (Get-WebBinding -HostHeader $_.Value -Protocol https) -or 
-            ! ( $webSite.bindings.Collection | Where-Object { $_.protocol -eq 'https' -and $_.bindingInformation -like "*:$dom*" } ) 
-        }
-
-    if ( $invalidDomains.Count -gt 0 )
+    # If the certificate is to be install in IIS then check the bindings already exist
+    if ( ! $notIIS)
     {
-        "The following domain(s) do not have an https binding in the web site '$WebSiteName': {0}" -f  (@( $invalidDomains | ForEach-Object { $_.Value } ) -join ",")
-        "Please add binding(s) in IIS before using these domain(s)"
-        return;
+        # Check that the domains for which certificates are to be generated have an https binding in the web site
+        $invalidDomains = $domains.GetEnumerator() | 
+            Where-Object { $dom = $_.Value;
+                ! (Get-WebBinding -HostHeader $_.Value -Protocol https) -or 
+                ! ( $webSite.bindings.Collection | Where-Object { $_.protocol -eq 'https' -and $_.bindingInformation -like "*:$dom*" } ) 
+            }
+    
+        if ( $invalidDomains.Count -gt 0 )
+        {
+            "The following domain(s) do not have an https binding in the web site '$WebSiteName': {0}" -f  (@( $invalidDomains | ForEach-Object { $_.Value } ) -join ",")
+            "Please add binding(s) in IIS before using these domain(s)"
+            return;
+        }
     }
 
     $csrDetails = @{}
@@ -236,12 +244,15 @@ Function Update-Certificate
     "aliases/domains:"
     $domains.GetEnumerator() | ForEach-Object { "    $($_.Key)=$($_.Value)" } 
 
-    $websiteFolder = $webSite.physicalPath
-    $websiteFolder = [System.Environment]::ExpandEnvironmentVariables($websiteFolder)
+    if (! $notIIS)
+    {
+        $websiteFolder = $webSite.physicalPath
+        $websiteFolder = [System.Environment]::ExpandEnvironmentVariables($websiteFolder)
 
-    "Web Site Name:   $WebSiteName"
-    "Web Site Folder: $websiteFolder"
-    "Cert Folder:     $certFolder"
+        "Web Site Name: $WebSiteName"
+        "Web Site Folder: $websiteFolder"
+    }
+    "Cert Folder: $certFolder"
 
     if ( $csrDetails.Count -gt 0 )
     {
@@ -391,9 +402,9 @@ Function Update-Certificate
                 Start-Sleep -Milliseconds 30000
             }
 
-            # If this is a manual http-01 challenge, then up to us to add the file into the webroot
+            # If this is a manual http-01 challenge using IIS, then up to us to add the file into the webroot
             # In all other cases the ACMESharp challenge handler should do the work
-            if ( ($ChallengeType -eq "http-01") -and ($ChallengeHandler -eq "manual") )
+            if ( ($ChallengeType -eq "http-01") -and ($ChallengeHandler -eq "manual") -and ! $notIIS )
             {
               $content = ""
               $path = ""
@@ -518,7 +529,7 @@ Function Update-Certificate
         "Cleaning challenge for '$alias'"
         $result = Complete-ACMEChallenge $alias -VaultProfile $VaultProfile -ChallengeType $ChallengeType -Handler $ChallengeHandler -HandlerParameters $ChallengeParameters -Clean
 
-        if ( ($ChallengeType -eq "http-01") -and ($ChanllengeHandler -eq "manual") )
+        if ( ($ChallengeType -eq "http-01") -and ($ChanllengeHandler -eq "manual") -and ! $notIIS )
         {
             # TODO: Clean up (remove) all the challenge folders created by this script
             # Remove-Item -Path "$websiteFolder\$path"
@@ -681,23 +692,20 @@ Function Update-Certificate
     (Get-Item "Cert:$certpath\$thumbprint").FriendlyName = "$domain $expires LE"
     (Get-Item "Cert:$certpath\$thumbprint").FriendlyName = $domain
 
-    if ( $notIIS ) 
+    if ( ! $notIIS )
     {
-        "No IIS"
-        return
-    }
-
-    # Update the certificate bindings
-    $domains.GetEnumerator() | ForEach-Object {
-
-        $alias = $_.Key
-        $domain = $_.Value
-
-        # Remove the existing binding.  The binding must be here, a check was made at the beginning
-        "Removing the SSL certificate for '$domain'"
-        remove-item -path "IIS:\SslBindings\*!443!$domain"
-        "Adding the SSL certificate with thumb print '$thumbprint' for '$domain'"
-        $result = New-Item -Path "IIS:\SslBindings\*!443!$domain" -Value $import_result -SSLFlags 1
+        # Update the certificate bindings
+        $domains.GetEnumerator() | ForEach-Object {
+    
+            $alias = $_.Key
+            $domain = $_.Value
+    
+            # Remove the existing binding.  The binding must be here, a check was made at the beginning
+            "Removing the SSL certificate for '$domain'"
+            remove-item -path "IIS:\SslBindings\*!443!$domain"
+            "Adding the SSL certificate with thumb print '$thumbprint' for '$domain'"
+            $result = New-Item -Path "IIS:\SslBindings\*!443!$domain" -Value $import_result -SSLFlags 1
+        }    
     }
 
     "Done"
