@@ -45,5 +45,5 @@ It is easier to schedule CMD scripts in Windows than PowerShell, this script run
 
 ## To Do
 
-# The ACMEScript AWS Route 53 challenge handler should be able to identify the correct Zone Id for each challenge domain name itself. This can be done my checking for the longest suffix of the domain name for which there is a zone in Royte 53. This would negate the need to specify Zone IDs and would allow certificates for multiple domain names from different zones.
-# The built in handling of 'http-01' in the script should clean up the challenge files it creates in the website after the challenge is complete. This mechanism could also be replaced by ACMESharp's 'iis' challenge handler.
+* The ACMEScript AWS Route 53 challenge handler should be able to identify the correct Zone Id for each challenge domain name itself. This can be done my checking for the longest suffix of the domain name for which there is a zone in Royte 53. This would negate the need to specify Zone IDs and would allow certificates for multiple domain names from different zones.
+* The built in handling of 'http-01' in the script should clean up the challenge files it creates in the website after the challenge is complete. This mechanism could also be replaced by ACMESharp's 'iis' challenge handler.
