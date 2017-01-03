@@ -1,6 +1,6 @@
 # Issue and optionally install SSL certificates in IIS using an ACME service like Let's Encrypt
 
-The starting point for this repository is [@bseddon](https://github.com/bseddon)'s `Update-Certificate-http.ps` script. The script for using [@ebrekker](https://github.com/ebekker)'s [ACMESharp](https://github.com/ebekker/ACMESharp) libraries to issue and install certificates on IIS. It uses the `http-01` ACME challenge method. @bseddon has since release his code under an MIT license in [his own repository](https://github.com/whereisaaron/acmesharp-script).
+The starting point for this repository is [@bseddon](https://github.com/bseddon)'s `Update-Certificate-http.ps` script. The script for using [@ebekker](https://github.com/ebekker)'s [ACMESharp](https://github.com/ebekker/ACMESharp) libraries to issue and install certificates on IIS. It uses the `http-01` ACME challenge method. @bseddon has since release his code under an MIT license in [his own repository](https://github.com/whereisaaron/acmesharp-script).
 
 The goal of this fork is it extend the script to handle the `dns-01` ACME challenge method using the [AWS Route 53](https://aws.amazon.com/route53/) API.
 
