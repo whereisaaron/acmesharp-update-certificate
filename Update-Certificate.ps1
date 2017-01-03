@@ -36,47 +36,47 @@
     be imported. (Default: \LocalMachine\WebHosting)
 .PARAMETER location
     The location of this script and the ACMEScript software. (Default: c:\ACMEScript)
-        The country (C) to display in the certificate
+    The country (C) to display in the certificate
 .PARAMETER Country,
-        The state or province (ST) to display in the certificate
+    The state or province (ST) to display in the certificate
 .PARAMETER StateOrProvince,
-        The organization (O) to display in the certificate
+    The organization (O) to display in the certificate
 .PARAMETER Organization,
-        The the organization unit (OU) to display in the certificate
+    The the organization unit (OU) to display in the certificate
 .PARAMETER OrganizationUnit,
-        The Description to display in the certificate
+    The Description to display in the certificate
 .PARAMETER Description,
-        The email address to display in the certificate
+    The email address to display in the certificate
 .PARAMETER Email,
-        Provided if the parameters are to be check but the process not executed
+    Provided if the parameters are to be check but the process not executed
 .PARAMETER checkParameters 
-        Set this option to true if old certificates for the domain are to be retained (by default they are removed)
+    Set this option to true if old certificates for the domain are to be retained (by default they are removed)
 .PARAMETER keepOldCertificates
-        Use this option if IIS is not to be updated
+    Use this option if IIS is not to be updated
 .PARAMETER notIIS
-        Which ACMEShart vault to use, defauults to ':user'
+    Which ACMESharp vault profile to use, will default to "":user"", or "":system"" if elevated, or \$env:ACMESHARP_VAULT_PROFILE if set
 .PARAMETER VaultProfile
-        Which ACME challenge method to use, 'http-01' or 'dns-01'
+    Which ACME challenge method to use, 'http-01' or 'dns-01'
 .PARAMETER ChallengeType
-        Which ACMESharp challenge handler to use, e.g. 'awsRoute53'
+    Which ACMESharp challenge handler to use, e.g. 'awsRoute53'
 .PARAMETER ChallengeHandler
-        Hash table or parametrs for the challenge handler, e.g. @{HostedZoneId="ZA1234567890";AwsProfileName="myuser"}
+    Hash table or parametrs for the challenge handler, e.g. @{HostedZoneId="ZA1234567890";AwsProfileName="myuser"}
 .PARAMETER ChallengeParameters
 .EXAMPLE
     C:\PS> Update-Certificate -alias "www-mydomain" -domain "www.mydomain.com" -websiteName "My Website"
-    This command creates a certificate for www.mydomain.com which is hosted by the web site named 'My Website'
+    This command creates a certificate for www.mydomain.com which is hosted by the web site named 'My Website' using the default http-01 challenge method
 .EXAMPLE
     C:\PS> Update-Certificate -alias "www-mydomain" -domain "www.mydomain.com" -websiteName "My Website" -domains @{"alias1"="my.domain.com";"alias2"="other.domain.com"}
     This command will generate a certificate for use with all the domains 'www.mydomain.com', 'my.domain.com' and 'other.domain.com'
 .EXAMPLE
     C:\PS> Update-Certificate -alias "www-mydomain" -domain "www.mydomain.com" -websiteName "My Website" -ChallengeType "dns-01" -ChallengeHandler "awsRoute53" -ChallengeParameters @{HostedZoneId="ZA1234567890";AwsProfileName="myuser"}
-    This command creates a certificate for www.mydomain.com which is hosted by the web site named 'My Website'
+    This command creates a certificate for www.mydomain.com which is hosted by the web site named 'My Website' using the specified dns-01 challenge method, handler, and parameters
 .NOTES
     Author: Bill Seddon
     History:
        January 25th, 2016   Initial version
        February 6th 2016    Updated to support alternative names, update the IIS SSL binding and allow some Csr parameters to be defined
-       January 2017         Updated by @whereisaaron to support dns-01 challenges using AWS Route 53 
+       January 2017         Updated by Aaron Roydhouse to support dns-01 challenges using AWS Route 53, and other challenge methods 
 #>
 Function Update-Certificate
 {
@@ -135,8 +135,8 @@ Function Update-Certificate
         [switch]$notIIS = $false,
         [Parameter(HelpMessage="Set this option to true if old certificates for the domain are to be retained (by default they are removed)")]
         [switch]$keepOldCertificates = $false,
-        [Parameter(HelpMessage="Which ACME challenge method to use, ""http-01"" or ""dns-01""")]
-        [string]$VaultProfile = ":user",
+        [Parameter(HelpMessage="ACMESharp vault profile, will default to "":user"", or "":system"" if elevated, or \`$env:ACMESHARP_VAULT_PROFILE if set")]
+        [string]$VaultProfile = "",
         [Parameter(HelpMessage="Which ACME challenge method to use, ""http-01"" or ""dns-01""")]
         [string]$ChallengeType = "http-01",
         [Parameter(HelpMessage="Which ACMESharp challenge handler to use, e.g. ""awsRoute53"" or ""manual""")]
@@ -316,7 +316,7 @@ Function Update-Certificate
 
     <#
      * Begin looping over the requested domains to create or find the respective identifiers
-     * TODO: It would be faster to prepare all challenges, and then request ACME to validate them all, especially for dns-01 challenges
+     * TODO: It would be faster to prepare all challenges first, and then request ACME to validate them all, especially for dns-01 challenges
      #>
 
     $identifiers = @{}
@@ -354,7 +354,7 @@ Function Update-Certificate
             HandlerCleanUpDate     : 
             SubmitDate             : 
             SubmitResponse         : 
-         #>
+         #>        
 
         # Is this identifier already valid?
         if ( ! ($result.Challenges | Where-Object { $_.Type -eq $ChallengeType -and $_.SubmitDate }).Count )
@@ -413,7 +413,7 @@ Function Update-Certificate
               [io.file]::WriteAllText("$websiteFolder\$path",$content)
             }
   
-            # Assume that the .well-known/acme-challenge/xxx file is in place
+            # Assume that DNS record or the .well-known/acme-challenge/xxx file is in place
             "Submit challenge for '$alias'"
             $result = Submit-ACMEChallenge $alias -VaultProfile $VaultProfile -ChallengeType $ChallengeType
 
@@ -509,8 +509,8 @@ Function Update-Certificate
         }
     }
     
-    # Now the challenge validation if complete, we can clean up the files or DNS records that were created
-    $domains.GetEnumerator() | ForEach-Object {
+    # Now the challenge validation is complete, we can clean up the temporary challenge files or DNS records that were created
+    $challenges.GetEnumerator() | ForEach-Object {
 
         $alias = $_.Key
         $domain = $_.Value
@@ -520,7 +520,7 @@ Function Update-Certificate
 
         if ( ($ChallengeType -eq "http-01") -and ($ChanllengeHandler -eq "manual") )
         {
-            # Need to remember or have access to the list of challenge files created
+            # TODO: Clean up (remove) all the challenge folders created by this script
             # Remove-Item -Path "$websiteFolder\$path"
         }
     }
