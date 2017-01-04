@@ -25,5 +25,12 @@ Update-Certificate -alias "www$suffix" -domain "www.example.com" -websiteName "M
 # Update api.example.com certificate (not an IIS website)
 Update-Certificate -alias "api$suffix" -domain "api.example.com" -notIIS -VaultProfile $vaultProfile -ChallengeType "dns-01" -ChallengeHandler "awsRoute53" -ChallengeParameters @{HostedZoneId="$vpcZoneId";AwsProfileName="$awsProfile"}
 
-# Restart the api service to load the new certificate
+# e.g. Restart the api service to load the new certificate
 Restart-Service myapi
+
+# e.g. Install new certificate in http.sys for a non-IIS app
+$thumb = (Get-ACMECertificate "certapi$suffix" -VaultProfile $vaultProfile).Thumbprint
+if ($thumb) {
+  netsh http delete sslcert hostnameport=api.example.com:443
+  netsh http add sslcert hostnameport=api.example.com:443 appid='{c81d3599-3b17-4a99-b2ed-4a5843f54ae7}' certhash=$thumb certstorename=WebHosting
+}
