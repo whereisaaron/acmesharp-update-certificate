@@ -685,7 +685,7 @@ Function Update-Certificate
 
     # Now import the certificate
     "Importing to $certPath from $filepath"
-    $import_result = Import-PfxCertificate -CertStoreLocation "cert:$certPath" -FilePath $filepath
+    $import_result = Import-PfxCertificate -CertStoreLocation "cert:$certPath" -FilePath $filepath -Exportable
 
     $expires = ((Get-Item "Cert:$certpath\$thumbprint").notAfter).ToString("yyyy-MM-dd")
     $friendly = "$maindomain $expires ACME"
