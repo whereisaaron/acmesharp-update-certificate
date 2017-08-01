@@ -36,32 +36,32 @@
     be imported. (Default: \LocalMachine\WebHosting)
 .PARAMETER location
     The location of this script and the ACMEScript software. (Default: c:\ACMEScript)
+.PARAMETER Country    
     The country (C) to display in the certificate
-.PARAMETER Country,
+.PARAMETER StateOrProvince
     The state or province (ST) to display in the certificate
-.PARAMETER StateOrProvince,
+.PARAMETER Organization
     The organization (O) to display in the certificate
-.PARAMETER Organization,
+.PARAMETER OrganizationUnit
     The the organization unit (OU) to display in the certificate
-.PARAMETER OrganizationUnit,
+.PARAMETER Description
     The Description to display in the certificate
-.PARAMETER Description,
+.PARAMETER Email
     The email address to display in the certificate
-.PARAMETER Email,
-    Provided if the parameters are to be check but the process not executed
 .PARAMETER checkParameters 
-    Set this option to true if old certificates for the domain are to be retained (by default they are removed)
+    Provided if the parameters are to be check but the process not executed
 .PARAMETER keepOldCertificates
-    Use this option if IIS is not to be updated or used for http-01 challenges
+    Set this option to true if old certificates for the domain are to be retained (by default they are removed)
 .PARAMETER notIIS
-    Which ACMESharp vault profile to use, will default to "":user"", or "":system"" if elevated, or \$env:ACMESHARP_VAULT_PROFILE if set
+    Use this option if IIS is not to be updated or used for http-01 challenges
 .PARAMETER VaultProfile
-    Which ACME challenge method to use, 'http-01' or 'dns-01'
+    Which ACMESharp vault profile to use, will default to "":user"", or "":system"" if elevated, or \$env:ACMESHARP_VAULT_PROFILE if set
 .PARAMETER ChallengeType
-    Which ACMESharp challenge handler to use, e.g. 'awsRoute53'
+    Which ACME challenge method to use, 'http-01' or 'dns-01'
 .PARAMETER ChallengeHandler
-    Hash table or parametrs for the challenge handler, e.g. @{HostedZoneId="ZA1234567890";AwsProfileName="myuser"}
+    Which ACMESharp challenge handler to use, e.g. 'awsRoute53'
 .PARAMETER ChallengeParameters
+    Hash table or parametrs for the challenge handler, e.g. @{HostedZoneId="ZA1234567890";AwsProfileName="myuser"}
 .EXAMPLE
     C:\PS> Update-Certificate -alias "www-mydomain" -domain "www.mydomain.com" -websiteName "My Website"
     This command creates a certificate for www.mydomain.com which is hosted by the web site named 'My Website' using the default http-01 challenge method
