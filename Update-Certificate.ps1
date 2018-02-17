@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Create a new or update an existing LetsEncrypt certificate for one or more 
+    Create a new or update an existing LetsEncrypt certificate for one or more
     domains and add it to a store then update the SSL bindings for an IIS web site
 .DESCRIPTION
     The script will use ACMESharp to create a new or update an existing
@@ -8,17 +8,17 @@
     add the certificate to the certificate store and update the SSL binding for a web site.
     This script is for use with IIS
     The script will validate the parameter provided. For example, the web site name must
-    be a valid IIS site name, the domain(s) listed must be defined as host headers for 
-    the site, there must be an existing https binding (even if it has an invalid certificate)
+    be a valid IIS site name, the domain(s) listed must be defined as host headers for
+    the site, there must be an existing https or ftps binding (even if it has an invalid certificate)
     and the domain and alias specified must not also appear in the list of alternative names.
 .PARAMETER alias
     A unique idenifier for the attempt to create a certificate.
 .PARAMETER domain
     The domain for which you want to create a certificate.
 .PARAMETER domains
-    A hashtable of domains for which you want to create a certificate 
+    A hashtable of domains for which you want to create a certificate
     for example  @{"alias1"="my.domain.com";"alias2"="other.domain.com"}.
-    The domains must be defined as host headers in the site given in the 
+    The domains must be defined as host headers in the site given in the
     webSiteName parameter.
 .PARAMETER websiteName
     The name of the web site hosting the domain(s) for which you are generating a certificate.
@@ -54,6 +54,8 @@
     Set this option to true if old certificates for the domain are to be retained (by default they are removed)
 .PARAMETER notIIS
     Use this option if IIS is not to be updated or used for http-01 challenges
+.PARAMETER isFTPS
+    Set this option to true if updated site is FTPS
 .PARAMETER VaultProfile
     Which ACMESharp vault profile to use, will default to "":user"", or "":system"" if elevated, or \$env:ACMESHARP_VAULT_PROFILE if set
 .PARAMETER ChallengeType
@@ -76,7 +78,8 @@
     History:
        January 25th, 2016   Initial version
        February 6th 2016    Updated to support alternative names, update the IIS SSL binding and allow some Csr parameters to be defined
-       January 2017         Updated by Aaron Roydhouse to support dns-01 challenges using AWS Route 53, and other challenge methods 
+       January 2017         Updated by Aaron Roydhouse to support dns-01 challenges using AWS Route 53, and other challenge methods
+       February 2018        Updated by Stepan Vardanyan to support FTPS certificate update in IIS, fixed binding checking
 #>
 Function Update-Certificate
 {
@@ -134,6 +137,8 @@ Function Update-Certificate
         [Parameter(HelpMessage="Use this option if IIS is not to be updated")]
         [switch]$notIIS = $false,
         [Parameter(HelpMessage="Set this option to true if old certificates for the domain are to be retained (by default they are removed)")]
+	    [switch]$isFTPS= $false,
+	    [Parameter(HelpMessage="Set this option to true if updated site is FTPS")]
         [switch]$keepOldCertificates = $false,
         [Parameter(HelpMessage="ACMESharp vault profile, will default to "":user"", or "":system"" if elevated, or \`$env:ACMESHARP_VAULT_PROFILE if set")]
         [string]$VaultProfile = "",
@@ -218,21 +223,20 @@ Function Update-Certificate
     # If the certificate is to be install in IIS then check the bindings already exist
     if ( ! $notIIS)
     {
-        # Check that the domains for which certificates are to be generated have an https binding in the web site
+        # Check that the domains for which certificates are to be generated have binding
         $invalidDomains = $domains.GetEnumerator() | 
             Where-Object { $dom = $_.Value;
-                ! (Get-WebBinding -HostHeader $_.Value -Protocol https) -or 
-                ! ( $webSite.bindings.Collection | Where-Object { $_.protocol -eq 'https' -and $_.bindingInformation -like "*:$dom*" } ) 
+                ! ( $webSite.bindings.Collection | Where-Object { ($_.protocol -eq 'https' -or ($_.protocol -eq 'ftp' -and $_.bindingInformation -like "*:990:*") ) -and $_.bindingInformation -like "*:$dom*" } )
             }
     
         if ( $invalidDomains.Count -gt 0 )
         {
-            "The following domain(s) do not have an https binding in the web site '$WebSiteName': {0}" -f  (@( $invalidDomains | ForEach-Object { $_.Value } ) -join ",")
+            "The following domain(s) do not have an https or ftps binding in the web site '$WebSiteName': {0}" -f  (@( $invalidDomains | ForEach-Object { $_.Value } ) -join ",")
             "Please add binding(s) in IIS before using these domain(s)"
             return;
         }
     }
-
+    
     $csrDetails = @{}
     if ( $Country ) { $csrDetails["Country"]=$Country }
     if ( $StateOrProvince ) { $csrDetails["StateOrProvince"]=$StateOrProvince }
@@ -323,13 +327,13 @@ Function Update-Certificate
         Get-ACMEChallengeHandlerProfile -ListChallengeHandlers
     }
 
-    #
+    
 
     <#
      * Begin looping over the requested domains to create or find the respective identifiers
      * TODO: It would be faster to prepare all challenges first, and then request ACME to validate them all, especially for dns-01 challenges
      #>
-
+     
     $identifiers = @{}
     $challenges = @{}
 
@@ -366,7 +370,7 @@ Function Update-Certificate
             SubmitDate             : 
             SubmitResponse         : 
          #>        
-
+         
         # Is this identifier already valid?
         if ( ! ($result.Challenges | Where-Object { $_.Type -eq $ChallengeType -and $_.SubmitDate }).Count )
         {
@@ -392,7 +396,7 @@ Function Update-Certificate
                 SubmitDate             : 
                 SubmitResponse         : 
             #>
-
+            
             # If this is a dns-01 challenge using AWS Route 53, then wait for the DNS entries to sync
             # ACMESharp should to the Route53 GetChange API method to wait for the sync itself, but doesn't yet
             if ( ($ChallengeType -eq "dns-01") -and ($ChallengeHandler -eq "awsRoute53") )
@@ -445,7 +449,7 @@ Function Update-Certificate
                 SubmitDate             : 1/25/2016 1:49:47 AM
                 SubmitResponse         : ACMESharp.AcmeClient+AcmeHttpResponse
             #>
-        }
+	}
         else
         {
             "The identifier '$alias' has been already been submitted"
@@ -561,7 +565,7 @@ Function Update-Certificate
         Signature                : 
         SignatureAlgorithm       : 
      #>
-
+     
     try
     {
         $result = Get-ACMECertificate $certalias -VaultProfile $VaultProfile
@@ -611,6 +615,7 @@ Function Update-Certificate
 
 
         #>
+        
     }
     catch
     {
@@ -696,16 +701,22 @@ Function Update-Certificate
     {
         # Update the certificate bindings
         $domains.GetEnumerator() | ForEach-Object {
-    
+
             $alias = $_.Key
             $domain = $_.Value
-    
-            # Remove the existing binding.  The binding must be here, a check was made at the beginning
-            "Removing the SSL certificate for '$domain'"
-            remove-item -path "IIS:\SslBindings\*!443!$domain"
+
             "Adding the SSL certificate with thumb print '$thumbprint' for '$domain'"
-            $result = New-Item -Path "IIS:\SslBindings\*!443!$domain" -Value $import_result -SSLFlags 1
-        }    
+            if ($isFTPS) {
+                # Set new SSL certificate for FTPS binding
+                Set-ItemProperty -Path "IIS:\Sites\$webSiteName" -Name ftpServer.security.ssl.serverCertStoreName -Value 'WebHosting'
+                Set-ItemProperty -Path "IIS:\Sites\$webSiteName" -Name ftpServer.security.ssl.serverCertHash -Value "$thumbprint"
+            }
+            else {
+                # Set new SSL certificate for HTTPS binding
+                $httpsBinding = Get-WebBinding -Name $webSiteName -Protocol https -Port 443
+                $httpsBinding.AddSslCertificate("$thumbprint", "WebHosting")
+            }
+        }
     }
 
     "Done"
