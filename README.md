@@ -2,13 +2,14 @@
 
 The starting point for this repository is [@bseddon](https://github.com/bseddon)'s `Update-Certificate-http.ps` script. The script for using [@ebekker](https://github.com/ebekker)'s [ACMESharp](https://github.com/ebekker/ACMESharp) libraries to issue and install certificates on IIS. It uses the `http-01` ACME challenge method. @bseddon has since release his code under an MIT license in [his own repository](https://github.com/whereisaaron/acmesharp-script).
 
-The goal of this fork is it extend the script to handle the `dns-01` ACME challenge method using the [AWS Route 53](https://aws.amazon.com/route53/) API.
+The goal of this fork is it extend the script to handle the `dns-01` ACME challenge method using the [AWS Route 53](https://aws.amazon.com/route53/) API. This version also addds IIS FTPS support (thanks @stoparik).
 
 ## Additional Features
 
 * Supports multiple ACMESharp vaults via the `-VaultProfile` parameter
 * Supports different challenge methods via `-ChallengeType`, `-ChallengeHandler`, and `-ChallengeParameters` parameters, including `http-01` and `dns-01`
-* Support issuing certificates without IIS
+* Supports issuing certificates without IIS
+* Supports installing certificates for IIS websites and IIS FTPS sites.
 * Minor bug fixes and log output tweaks
 
 ## Update-Certificate.ps1
