@@ -224,9 +224,11 @@ Function Update-Certificate
     if ( ! $notIIS)
     {
         # Check that the domains for which certificates are to be generated have binding
+        # either it should be https with domain binding or ftp with 990 port
+        # (DO NOT SET host name in ftp binding of 990 port, it will cause non-updated cert)
         $invalidDomains = $domains.GetEnumerator() | 
             Where-Object { $dom = $_.Value;
-                ! ( $webSite.bindings.Collection | Where-Object { ($_.protocol -eq 'https' -or ($_.protocol -eq 'ftp' -and $_.bindingInformation -like "*:990:*") ) -and $_.bindingInformation -like "*:$dom*" } )
+                ! ( $webSite.bindings.Collection | Where-Object { ($_.protocol -eq 'https' -and $_.bindingInformation -like "*:$dom*" ) -or ($_.protocol -eq 'ftp' -and $_.bindingInformation -like "*:990:*") } )
             }
     
         if ( $invalidDomains.Count -gt 0 )
